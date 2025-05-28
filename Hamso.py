@@ -1,27 +1,23 @@
 import tkinter as tk
 from tkinter import messagebox
-import sys
 import sympy as sp
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import sys
 
-# Biến toàn cục
 x = sp.symbols('x')
-zoom = 50  # Zoom mặc định
-expr = None  # Biểu thức hàm số
-solutions_real = []  # Danh sách nghiệm thực
-solutions_all = []   # Danh sách tất cả nghiệm
+zoom = 50
+expr = None
+solutions_real = []
 
-# === Hàm vẽ bảng biến thiên (cập nhật vẽ vào ax_left) ===
-def ve_bang_bien_thien(expr_str, ax_left):
+# ======= ĐOẠN 1: VẼ BẢNG BIẾN THIÊN & ĐẠO HÀM =======
+def hamso(expr_str, ax_left):
     ax_left.clear()
     try:
         f = sp.sympify(expr_str)
         df = sp.diff(f, x)
-        
-        # toạn độ của đạo hàm
-        ax_left.text(0.5, 1.08, r"$f'(x) = %s$" % sp.latex(df), ha='center', va='center', fontsize=18, transform=ax_left.transAxes)
+        ax_left.text(0.5, 1.08, r"$f'(x) = %s$" % sp.latex(df), ha='center', va='center', fontsize=16, transform=ax_left.transAxes)
 
         critical_points = sp.solve(df, x)
         denominator = sp.denom(f)
@@ -72,23 +68,23 @@ def ve_bang_bien_thien(expr_str, ax_left):
         ax_left.hlines(y_positions[2], -1, len(x_labels), color='black', linewidth=1.2)
         ax_left.vlines(-0.5, 0, 3, color='black', linewidth=1.2)
 
-        ax_left.text(-1.2, y_positions[0] + 0.1, "x", fontsize=14, weight='bold')
-        ax_left.text(-1.2, y_positions[1] + 0.1, "$f'(x)$", fontsize=14, weight='bold')
-        ax_left.text(-1.2, y_positions[2] + 0.1, "$f(x)$", fontsize=14, weight='bold')
+        ax_left.text(-1.2, y_positions[0] + 0.1, "x", fontsize=13, weight='bold')
+        ax_left.text(-1.2, y_positions[1] + 0.1, "$f'(x)$", fontsize=13, weight='bold')
+        ax_left.text(-1.2, y_positions[2] + 0.1, "$f(x)$", fontsize=13, weight='bold')
 
         for i, lbl in enumerate(x_labels):
-            ax_left.text(i, y_positions[0] + 0.1, lbl, ha='center', va='center', fontsize=14)
+            ax_left.text(i, y_positions[0] + 0.1, lbl, ha='center', va='center', fontsize=13)
 
         for i, (sgn, _) in enumerate(intervals):
             pos_x = i + 0.5
             if i < len(all_points_real) and all_points_real[i] in critical_points:
-                ax_left.text(i + 1, y_positions[1] + 0.05, "0", ha='center', va='center', fontsize=14, color='blue')
+                ax_left.text(i + 1, y_positions[1] + 0.05, "0", ha='center', va='center', fontsize=12, color='blue')
             else:
-                ax_left.text(pos_x, y_positions[1] + 0.05, sgn, ha='center', va='center', fontsize=14)
+                ax_left.text(pos_x, y_positions[1] + 0.05, sgn, ha='center', va='center', fontsize=12)
 
         for i, val in enumerate(values_fx):
             text_val = f"{val:.2f}" if val.is_real else "undef"
-            ax_left.text(i + 1, y_positions[2] - 0.2, text_val, ha='center', va='center', fontsize=14)
+            ax_left.text(i + 1, y_positions[2] - 0.2, text_val, ha='center', va='center', fontsize=12)
 
         for i, (sgn, _) in enumerate(intervals):
             x1, x2 = i, i + 1
@@ -102,104 +98,114 @@ def ve_bang_bien_thien(expr_str, ax_left):
 
     except Exception as e:
         ax_left.axis("off")
-        ax_left.text(0.5, 0.5, f"Không thể vẽ bảng biến thiên vì hàm số có nghiệm phức:\n{e}", ha='center', va='center', fontsize=14, color='red')
+        ax_left.text(0.5, 0.5, f"Không thể vẽ bảng biến thiên:\n{e}", ha='center', va='center', fontsize=12, color='red')
 
-# === Hàm vẽ đồ thị + nghiệm (cập nhật ax_right) ===
-def plot_graph(ax_right):
-    global expr, solutions_real, zoom
+# ======= ĐOẠN 2: TÍNH NGHIỆM & VẼ ĐỒ THỊ =======
+def plot_graph():
+    global expr, zoom, solutions_real
     ax_right.clear()
     if expr is None:
         ax_right.text(0.5, 0.5, "Chưa có hàm số để vẽ", ha='center', va='center', fontsize=14, color='gray', transform=ax_right.transAxes)
+        canvas_right.draw()
         return
     try:
         f = sp.lambdify(x, expr, modules=["numpy"])
         range_x = 10 * 50 / zoom
         x_vals = np.linspace(-range_x, range_x, 1000)
         y_vals = f(x_vals)
+        y_vals = np.array(y_vals, dtype=np.float64)
+        mask = np.isfinite(y_vals)
+        x_plot = x_vals[mask]
+        y_plot = y_vals[mask]
 
         ax_right.axhline(0, color='black', linewidth=1)
         ax_right.axvline(0, color='black', linewidth=1)
         ax_right.grid(True, linestyle='--', alpha=0.5)
-        ax_right.plot(x_vals, y_vals, label=f"y = {str(expr)}", color="blue")
+        ax_right.plot(x_plot, y_plot, label=f"y = {str(expr)}", color="blue")
 
         for sol in solutions_real:
-            val = float(sp.N(sol))
+            val = float(sol)
             ax_right.plot(val, 0, 'ro')
-            ax_right.annotate(f"x = {val:.2f}", (val, 0), textcoords="offset points", xytext=(0, 10), ha='center', fontsize=12, color='red')
+            ax_right.annotate(f"x = {val:.4f}", (val, 0), textcoords="offset points", xytext=(0, 10), ha='center', fontsize=12, color='red')
 
-        ax_right.set_title("Đồ thị hàm số và nghiệm", fontsize=16)
+        ax_right.set_title("Đồ thị hàm số", fontsize=15)
         ax_right.set_xlim(-range_x, range_x)
         ax_right.set_ylim(-range_x, range_x)
-        ax_right.legend(fontsize=12)
+        ax_right.legend(fontsize=11)
+        canvas_right.draw()
     except Exception as e:
-        ax_right.text(0.5, 0.5, f"Không thể vẽ đồ thị:\n{e}", ha='center', va='center', fontsize=14, color='red')
+        ax_right.text(0.5, 0.5, f"Không thể vẽ đồ thị:\n{e}", ha='center', va='center', fontsize=12, color='red')
+        canvas_right.draw()
 
-# Hàm xử lý khi nhấn nút Thực hiện
 def run():
-    global expr, solutions_real, solutions_all, zoom
+    global expr, solutions_real
     equation_str = entry_equation.get()
     try:
         expr = sp.sympify(equation_str)
-        solutions_all = sp.solve(expr, x)
-
-        # Lọc nghiệm thực: chỉ lấy nghiệm có phần ảo = 0
-        solutions_real = [sol.evalf() for sol in solutions_all if sp.im(sol.evalf()) == 0]
-
+        # Đạo hàm
+        derivative_str = str(sp.diff(expr, x))
+        # Nghiệm thực
+        all_solutions = sp.solve(expr, x)
+        solutions_real = []
+        for sol in all_solutions:
+            val = complex(sol.evalf())
+            if abs(val.imag) < 1e-8:
+                solutions_real.append(val.real)
+        # Nếu không có nghiệm thực rõ ràng, thử tìm nghiệm gần đúng trong khoảng [-100, 100]
+        if not solutions_real and expr.is_polynomial(x):
+            coeffs = sp.Poly(expr, x).all_coeffs()
+            degree = len(coeffs) - 1
+            try:
+                for guess in np.linspace(-100, 100, 5 * degree + 1):
+                    try:
+                        s = sp.nsolve(expr, x, guess)
+                        sval = complex(s.evalf())
+                        if abs(sval.imag) < 1e-8:
+                            sval = round(sval.real, 8)
+                            if not any(abs(sval - t) < 1e-6 for t in solutions_real):
+                                solutions_real.append(sval)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
         if solutions_real:
-            solution_str = ", ".join([f"x = {sol:.2f}" for sol in solutions_real])
+            solution_str = ", ".join([f"x = {sol:.4f}" for sol in solutions_real])
         else:
             solution_str = "Không có nghiệm thực"
+        label_result.config(text="Nghiệm thực: " + solution_str, font=("Arial", 13, "bold"))
 
-        label_result.config(text="Nghiệm thực: " + solution_str, font=("Arial", 14, "bold"))
-
-        ve_bang_bien_thien(equation_str, ax_left)
+        hamso(equation_str, ax_left)
         canvas_left.draw()
-
-        plot_graph(ax_right)
-        canvas_right.draw()
-
+        plot_graph()
     except Exception as e:
         messagebox.showerror("Lỗi", f"Hàm không hợp lệ: {e}")
         expr = None
         solutions_real = []
-        label_result.config(text="Nghiệm: ", font=("Arial", 14))
+        label_result.config(text="Nghiệm thực: ")
         ax_left.clear()
+        ax_left.text(0.5, 0.5, "Không thể vẽ bảng biến thiên.", ha='center', va='center', fontsize=12, color='red')
         canvas_left.draw()
         ax_right.clear()
         canvas_right.draw()
 
-
-    except Exception as e:
-        messagebox.showerror("Lỗi", f"Hàm không hợp lệ: {e}")
-        expr = None
-        solutions_real = []
-        label_result.config(text="Nghiệm: ", font=("Arial", 14))
-        ax_left.clear()
-        ax_left.text(0.5, 0.5,
-                    "Không thể vẽ bảng biến thiên.\n"
-                    "Hàm số có thể quá phức tạp hoặc không có điểm tới hạn thực.",
-                    ha='center', va='center', fontsize=14, color='red',
-                    wrap=True)
-        ax_left.axis('off')
-
-# Hàm zoom bằng phím mũi tên
 def on_key(event):
     global zoom
     if event.keysym == "Up":
         zoom += 10
         if expr:
-            plot_graph(ax_right)
-            canvas_right.draw()
+            plot_graph()
     elif event.keysym == "Down":
         zoom = max(10, zoom - 10)
         if expr:
-            plot_graph(ax_right)
-            canvas_right.draw()
+            plot_graph()
 
-# === Tạo GUI chính ===
+def on_closing():
+    root.destroy()
+    sys.exit()
+
 root = tk.Tk()
-root.title("Bảng biến thiên và Đồ thị hàm số (Zoom: phím mũi tên ↑↓)")
-root.geometry("1200x600")
+root.title("Vẽ Đồ Thị, Đạo Hàm & Bảng Biến Thiên (Zoom: phím ↑↓)")
+root.geometry("1250x650")
 
 frame_left = tk.Frame(root)
 frame_left.pack(side="left", fill="both", expand=True)
@@ -211,28 +217,21 @@ canvas_left.get_tk_widget().pack(fill="both", expand=True)
 frame_right = tk.Frame(root)
 frame_right.pack(side="right", fill="both", expand=True)
 
-label_input = tk.Label(frame_right, text="Nhập hàm số y =", font=("Arial", 20))
+label_input = tk.Label(frame_right, text="Nhập hàm số y =", font=("Arial", 17))
 label_input.pack(pady=(10, 0))
-entry_equation = tk.Entry(frame_right, width=30, font=("Arial", 20))
+entry_equation = tk.Entry(frame_right, width=30, font=("Arial", 17))
 entry_equation.pack(pady=10)
 
-btn_run = tk.Button(frame_right, text="Thực hiện", font=("Arial", 20), command=run)
+btn_run = tk.Button(frame_right, text="Tính & Vẽ", font=("Arial", 14), command=run)
 btn_run.pack(pady=10)
 
-label_result = tk.Label(frame_right, text="Nghiệm: ", fg="blue", font=("Arial", 16))
-label_result.pack(pady=5)
+label_result = tk.Label(frame_right, text="Nghiệm thực: ", fg="blue", font=("Arial", 13))
+label_result.pack(pady=3)
 
-fig_right, ax_right = plt.subplots(figsize=(6, 4))
+fig_right, ax_right = plt.subplots(figsize=(6, 5))
 canvas_right = FigureCanvasTkAgg(fig_right, master=frame_right)
 canvas_right.get_tk_widget().pack(fill="both", expand=True)
 
 root.bind("<Key>", on_key)
-
-
-def on_closing():
-    root.destroy()
-    sys.exit()
-
 root.protocol("WM_DELETE_WINDOW", on_closing)
-
 root.mainloop()
